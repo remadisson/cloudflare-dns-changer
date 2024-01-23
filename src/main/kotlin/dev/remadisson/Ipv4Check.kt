@@ -1,7 +1,8 @@
-package dev.remadisson.de.remadisson
+package dev.remadisson
 
 import java.time.Instant
 
-data class Ipv4Check(val equals: Boolean){
-    val instant: Instant = Instant.now();
+class Ipv4Check (val ipAddress: String?, val id: String?){
+    val instant: Instant = Instant.now()
+    var updated: Boolean = false
 }

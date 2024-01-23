@@ -1,13 +1,14 @@
-package de.remadisson
+package dev.remadisson
 
 import java.awt.Color
 import java.io.IOException
 import java.lang.reflect.Array
-import java.net.URL
+import java.net.URI
 import javax.net.ssl.HttpsURLConnection
 
 /**
  * Class used to execute Discord Webhooks with low effort
+ * Original by @k3kdude - GitHub: https://gist.github.com/k3kdude/fba6f6b37594eae3d6f9475330733bdb
  */
 class DiscordWebhook
 /**
@@ -21,24 +22,29 @@ class DiscordWebhook
     private var tts = false
     private val embeds: MutableList<EmbedObject> = ArrayList()
 
-    fun setContent(content: String?) {
+    fun setContent(content: String?) :DiscordWebhook {
         this.content = content
+        return this;
     }
 
-    fun setUsername(username: String?) {
+    fun setUsername(username: String?) :DiscordWebhook {
         this.username = username
+        return this;
     }
 
-    fun setAvatarUrl(avatarUrl: String?) {
+    fun setAvatarUrl(avatarUrl: String?) :DiscordWebhook {
         this.avatarUrl = avatarUrl
+        return this;
     }
 
-    fun setTts(tts: Boolean) {
+    fun setTts(tts: Boolean) :DiscordWebhook {
         this.tts = tts
+        return this;
     }
 
-    fun addEmbed(embed: EmbedObject) {
+    fun addEmbed(embed: EmbedObject) :DiscordWebhook {
         embeds.add(embed)
+        return this;
     }
 
     @Throws(IOException::class)
@@ -54,7 +60,7 @@ class DiscordWebhook
         json.put("avatar_url", this.avatarUrl)
         json.put("tts", this.tts)
 
-        if (!embeds.isEmpty()) {
+        if (embeds.isNotEmpty()) {
             val embedObjects: MutableList<JSONObject> = ArrayList()
 
             for (embed: EmbedObject in this.embeds) {
@@ -128,10 +134,10 @@ class DiscordWebhook
             json.put("embeds", embedObjects.toTypedArray())
         }
 
-        val url = URL(this.url)
+        val url = URI.create(this.url).toURL()
         val connection = url.openConnection() as HttpsURLConnection
         connection.addRequestProperty("Content-Type", "application/json")
-        connection.addRequestProperty("User-Agent", "Java-DiscordWebhook-BY-Gelox_")
+        connection.addRequestProperty("User-Agent", "Java-Discord-Webhook")
         connection.doOutput = true
         connection.requestMethod = "POST"
 
@@ -142,6 +148,13 @@ class DiscordWebhook
 
         connection.inputStream.close() //I'm not sure why but it doesn't work without getting the InputStream
         connection.disconnect()
+
+        this.content = null
+        this.username = null
+        this.avatarUrl = null
+        this.tts = false
+        this.username = null
+        this.embeds.clear()
     }
 
     class EmbedObject() {
@@ -153,7 +166,6 @@ class DiscordWebhook
             private set
         var color: Color? = null
             private set
-
         var footer: Footer? = null
             private set
         var thumbnail: Thumbnail? = null
