@@ -18,27 +18,23 @@ import java.util.concurrent.TimeUnit
 
 val ipv4Checks: HashMap<String, Ipv4Check> = HashMap()
 private const val updateInterval: Long = 30 // Minutes
-private var cfEmail: String? = null
-private var cfAuthToken: String? = null
 
-fun main(args: Array<String>) {
-    if (args[0].isBlank()) {
-        println("Webhook is not defined")
-        return
-    }
+fun main() {
+    val webhook = environmentHelper(EnvironmentKey.WEBHOOK)
+    val discordTag = environmentHelper(EnvironmentKey.TAG)
 
-    val logger = LoggerWrapper(args[0], "268362677313601536")
+    val logger = LoggerWrapper(webhook, discordTag)
 
-    cfEmail = args[1]
-    cfAuthToken = args[2]
+    val cfEmail = environmentHelper(EnvironmentKey.EMAIL)
+    val cfAuthToken = environmentHelper(EnvironmentKey.TOKEN)
 
     if (cfEmail.isNullOrBlank() || cfAuthToken.isNullOrBlank()) {
         logger.error("Cloudflare Email or AuthToken not provided")
         return;
     }
 
-    val zoneID: String = args[3]
-    if (zoneID.isBlank()) {
+    val zoneID: String? = environmentHelper(EnvironmentKey.ZONE)
+    if (zoneID.isNullOrBlank()) {
         logger.error("zoneID was not provided.")
         return;
     }
@@ -46,8 +42,9 @@ fun main(args: Array<String>) {
     val main = Main()
     main.zoneID = zoneID
     main.logger = logger
-
-    val subDomains: List<String> = args.copyOfRange(4, args.size).distinct()
+    main.email = cfEmail
+    main.token = cfAuthToken
+    val subDomains: List<String> = environmentHelper(EnvironmentKey.SUBDOMAINS)?.split(",")?.toList()?.map(String::trim)?.distinct() ?: emptyList()
     if (subDomains.isEmpty()) {
         logger.error("No subdomains have been provided.")
         return;
@@ -62,13 +59,37 @@ fun main(args: Array<String>) {
     scheduler.scheduleAtFixedRate(main::scheduledUpdate, 0, updateInterval, TimeUnit.MINUTES)
 }
 
+private fun environmentHelper(key: EnvironmentKey) : String?{
+    if(!System.getenv().contains(key.environmentPath)){
+        return null
+    }
+
+    val value = System.getenv()[key.environmentPath]
+    if(value.equals(key.defaultValue())){
+        return null
+    }
+
+    return value
+}
+
+private enum class EnvironmentKey(val environmentPath: String) {
+    WEBHOOK("DC_WEBHOOK"), EMAIL("CF_EMAIL"), TOKEN("CF_TOKEN"),
+    ZONE("CF_ZONE"), SUBDOMAINS("CF_SUBDOMAINS"), TAG("DC_TAG");
+
+    fun defaultValue(): String {
+        return "default"
+    }
+}
+
 class Main {
 
     private var currentIpAddress: String? = null;
     private var lastUpdate: Instant? = null;
-    var zoneID: String? = null;
-    lateinit var logger: LoggerWrapper;
     private var init: Boolean = true;
+    lateinit var token: String;
+    lateinit var email: String;
+    lateinit var zoneID: String;
+    lateinit var logger: LoggerWrapper;
 
     fun scheduledUpdate() {
         val queriedIpAddress: String = getCurrentIpAddress()
@@ -91,7 +112,6 @@ class Main {
                 val element: JsonObject = iterator.asJsonObject ?: continue
 
                 if (!element.has("id") || !element.has("name") || !element.has("id") || !element.has("type")) {
-                    println("Skipped element because it's missing something")
                     continue
                 }
 
@@ -101,7 +121,8 @@ class Main {
                 val type: String = element.get("type").asString
                 if (ipv4Checks.keys.contains(name)) {
                     if(type != "A"){
-                        println("Type is not A")
+                        //TODO Needs to be tested, could throw an error because of the newline character
+                        logger.warning("Named Subdomain '$name' does not match the type that is required to update the entry.\nRequired Type: A given '$type'")
                         ipv4Checks.remove(name)
                         continue;
                     }
@@ -110,8 +131,6 @@ class Main {
             }
 
             ipv4Checks.entries.stream().filter{(_, v): Map.Entry<String, Ipv4Check> -> v.id == null }.map { ipv4Checks.remove(it.key) }
-
-            init = false;
         }
 
         val entries: ArrayList<String> = ArrayList()
@@ -128,7 +147,7 @@ class Main {
             body.addProperty("ttl", 1)
             body.addProperty("proxied", false).toString()
 
-            val url: String = "https://api.cloudflare.com/client/v4/zones/$zoneID/dns_records/${entry.value.id}"
+            val url = "https://api.cloudflare.com/client/v4/zones/$zoneID/dns_records/${entry.value.id}"
             val json = cloudflarePutRequest(url, body.toString()) ?: continue
 
             if(json.has("error")){
@@ -144,14 +163,16 @@ class Main {
             Thread.sleep(200)
         }
 
-        if(entries.isNotEmpty()) {
+        if(entries.isNotEmpty() && !init) {
             logger.info("Update about following Subdomains", entries)
         }
+
+        if(init) init = false
     }
 
     private fun getCurrentIpAddress(): String {
         val url: URL = URI.create("https://checkip.amazonaws.com").toURL()
-        val reader: BufferedReader = BufferedReader(InputStreamReader(url.openStream()));
+        val reader = BufferedReader(InputStreamReader(url.openStream()));
         val ipAddress: String = reader.readLine();
         reader.close()
         return ipAddress
@@ -160,8 +181,8 @@ class Main {
     private fun cloudflareGetRequest(urlString: String): JsonObject? {
         val request: HttpRequest = HttpRequest.newBuilder()
             .uri(URI.create(urlString))
-            .header("X-Auth-Email", cfEmail)
-            .header("X-Auth-Key", cfAuthToken)
+            .header("X-Auth-Email", email)
+            .header("X-Auth-Key", token)
             .header("Content-Type", "application/json")
             .GET()
             .build()
@@ -174,8 +195,8 @@ class Main {
     private fun cloudflarePutRequest(urlString: String, body: String): JsonObject? {
         val request: HttpRequest = HttpRequest.newBuilder()
             .uri(URI.create(urlString))
-            .header("X-Auth-Email", cfEmail)
-            .header("X-Auth-Key", cfAuthToken)
+            .header("X-Auth-Email", email)
+            .header("X-Auth-Key", token)
             .header("Content-Type", "application/json")
             .PUT(HttpRequest.BodyPublishers.ofString(body))
             .build()
@@ -183,9 +204,5 @@ class Main {
         val response: HttpResponse<String> = client.send(request, HttpResponse.BodyHandlers.ofString())
 
         return JsonParser().parse(response.body()).asJsonObject
-    }
-
-    fun getIpv4Checks(): HashMap<String, Ipv4Check>{
-        return ipv4Checks
     }
 }

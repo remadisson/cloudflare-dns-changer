@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "dev.remadisson"
-version = "1.0.0-SNAPSHOT"
+version = "1.0.1"
 
 repositories {
     mavenCentral()
@@ -25,6 +25,7 @@ tasks.withType<Jar>() {
     configurations["compileClasspath"].filter { it.name == "gson-2.7.jar" || it.name == "kotlin-stdlib-1.9.21.jar" }.map { file: File ->
         from(zipTree(file.absoluteFile))
     }
+    archiveBaseName.set("cloudflare-dns-changer")
 }
 
 tasks.test {
