@@ -5,14 +5,18 @@ import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.logging.Logger
-import kotlin.collections.ArrayList
 
 
 val sdf = SimpleDateFormat("dd.MM.yyyy, HH:mm:ss")
-class LoggerWrapper(webhookUrl: String, private val tag: String?) {
+class LoggerWrapper(webhookUrl: String?, private val tag: String?) {
 
     private val logger: Logger = Logger.getLogger("dev.remadisson.LoggerWrapper")
-    private val webhook: DiscordWebhook = DiscordWebhook(webhookUrl)
+    private var discordWebhook: DiscordWebhook? = null
+    init {
+        if(!webhookUrl.isNullOrBlank()) {
+            this.discordWebhook = DiscordWebhook(webhookUrl)
+        }
+    }
 
     fun info(message: String) {
         logger.info(message)
@@ -40,6 +44,12 @@ class LoggerWrapper(webhookUrl: String, private val tag: String?) {
     }
 
     private fun toDiscord(logLevel: LogLevel, context: String, vararg messages: String) {
+        if(discordWebhook == null){
+            return
+        }
+
+        val webhook: DiscordWebhook = discordWebhook!!;
+
         val timestamp: String = sdf.format(Date())
         webhook.setTts(false)
             .setUsername("rebotisson")
