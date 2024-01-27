@@ -60,7 +60,7 @@ fun main() {
     main.token = cfAuthToken!!
 
     for (subDomain in subDomains) {
-        ipv4Checks[subDomain] = Ipv4Check(null, null);
+        ipv4Checks[subDomain] = Ipv4Check(null, null)
     }
 
     val scheduler: ScheduledExecutorService = Executors.newScheduledThreadPool(1)
@@ -91,13 +91,13 @@ private enum class InformationKey(val path: String) {
 
 class Main {
 
-    private var currentIpAddress: String? = null;
-    private var lastUpdate: Instant? = null;
-    private var init: Boolean = true;
-    lateinit var token: String;
-    lateinit var email: String;
-    lateinit var zoneID: String;
-    lateinit var logger: LoggerWrapper;
+    private var currentIpAddress: String? = null
+    private var lastUpdate: Instant? = null
+    private var init: Boolean = true
+    lateinit var token: String
+    lateinit var email: String
+    lateinit var zoneID: String
+    lateinit var logger: LoggerWrapper
 
     fun scheduledUpdate() {
         val queriedIpAddress: String = getCurrentIpAddress()
@@ -105,10 +105,10 @@ class Main {
             if(currentIpAddress != null){
                 logger.info("$queriedIpAddress is the new IP-Address.")
             }
-            currentIpAddress = queriedIpAddress;
-            lastUpdate = Instant.now();
+            currentIpAddress = queriedIpAddress
+            lastUpdate = Instant.now()
         } else {
-            return;
+            return
         }
 
         if (init) {
@@ -131,7 +131,7 @@ class Main {
                     if(type != "A"){
                         logger.warning("Named Subdomain '$name' does not match the type that is required to update the entry. Required Type: A - Given: '$type' - Entry removed from update List.")
                         ipv4Checks.remove(name)
-                        continue;
+                        continue
                     }
                     ipv4Checks[name] = Ipv4Check(content, id)
                 }
@@ -157,7 +157,7 @@ class Main {
                 continue
             }
 
-            val body = JsonObject();
+            val body = JsonObject()
             body.addProperty("type", "A")
             body.addProperty("name", entry.key)
             body.addProperty("content", currentIpAddress)
@@ -189,8 +189,8 @@ class Main {
 
     private fun getCurrentIpAddress(): String {
         val url: URL = URI.create("https://checkip.amazonaws.com").toURL()
-        val reader = BufferedReader(InputStreamReader(url.openStream()));
-        val ipAddress: String = reader.readLine();
+        val reader = BufferedReader(InputStreamReader(url.openStream()))
+        val ipAddress: String = reader.readLine()
         reader.close()
         return ipAddress
     }

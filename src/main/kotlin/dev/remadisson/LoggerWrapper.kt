@@ -61,7 +61,7 @@ class LoggerWrapper(webhookUrl: String?, tag: String?) {
             return
         }
 
-        val webhook: DiscordWebhook = discordWebhook!!;
+        val webhook: DiscordWebhook = discordWebhook!!
 
         val timestamp: String = sdf.format(Date())
         webhook.setTts(false)
@@ -77,7 +77,7 @@ class LoggerWrapper(webhookUrl: String?, tag: String?) {
             .setDescription(context)
         webhook.addEmbed(embed)
 
-        var ipNull: Boolean = false
+        var ipNull = false
 
         for(message in messages){
             val check: Ipv4Check = ipv4Checks[message] ?: continue
