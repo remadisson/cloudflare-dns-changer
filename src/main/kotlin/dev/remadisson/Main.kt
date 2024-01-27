@@ -15,64 +15,72 @@ import java.util.*
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
+import kotlin.system.exitProcess
 
 val ipv4Checks: HashMap<String, Ipv4Check> = HashMap()
 private const val updateInterval: Long = 30 // Minutes
 
 fun main() {
-    val webhook = environmentHelper(EnvironmentKey.WEBHOOK)
-    val discordTag = environmentHelper(EnvironmentKey.TAG)
+    val webhook = informationProvider(InformationKey.WEBHOOK)
+    val discordTag = informationProvider(InformationKey.TAG)
 
     val logger = LoggerWrapper(webhook, discordTag)
 
-    val cfEmail = environmentHelper(EnvironmentKey.EMAIL)
-    val cfAuthToken = environmentHelper(EnvironmentKey.TOKEN)
+    val missing = ArrayList<String>()
 
-    if (cfEmail.isNullOrBlank() || cfAuthToken.isNullOrBlank()) {
-        logger.error("Cloudflare Email or AuthToken not provided")
-        return;
+    val cfEmail: String? = informationProvider(InformationKey.EMAIL)
+    if (cfEmail.isNullOrBlank()) {
+        missing.add("CF_EMAIL was not provided")
     }
 
-    val zoneID: String? = environmentHelper(EnvironmentKey.ZONE)
+    val cfAuthToken: String? = informationProvider(InformationKey.TOKEN)
+    if(cfAuthToken.isNullOrBlank()){
+        missing.add("CF_TOKEN was not provided")
+    }
+
+    val zoneID: String? = informationProvider(InformationKey.ZONE)
     if (zoneID.isNullOrBlank()) {
-        logger.error("zoneID was not provided.")
-        return;
+        missing.add("CF_ZONE was not provided")
+    }
+
+    val subDomains: List<String> = informationProvider(InformationKey.SUBDOMAINS)?.split(",")?.toList()?.map(String::trim)?.distinct() ?: emptyList()
+    if(subDomains.isEmpty()){
+        missing.add("CF_SUBDOMAINS is either in wrong format, or just not provided")
+    }
+
+    if(missing.isNotEmpty()){
+        logger.multiLog("Current Args have not been provided but are necessary", missing, LoggerWrapper.LogLevel.ERROR)
+        exitProcess(-1)
     }
 
     val main = Main()
-    main.zoneID = zoneID
     main.logger = logger
-    main.email = cfEmail
-    main.token = cfAuthToken
-    val subDomains: List<String> = environmentHelper(EnvironmentKey.SUBDOMAINS)?.split(",")?.toList()?.map(String::trim)?.distinct() ?: emptyList()
-    if (subDomains.isEmpty()) {
-        logger.error("No subdomains have been provided.")
-        return;
-    }
+    main.zoneID = zoneID!!
+    main.email = cfEmail!!
+    main.token = cfAuthToken!!
 
     for (subDomain in subDomains) {
         ipv4Checks[subDomain] = Ipv4Check(null, null);
     }
 
     val scheduler: ScheduledExecutorService = Executors.newScheduledThreadPool(1)
-    logger.info("Started: Updating ${ipv4Checks.size} DNS-Records in an Interval of $updateInterval Minutes, Following Subdomains have been detected", subDomains)
+    logger.multiLog("Started: Updating ${ipv4Checks.size} DNS-Records in an Interval of $updateInterval Minutes, Following Subdomains have been detected", subDomains, LoggerWrapper.LogLevel.INFO)
     scheduler.scheduleAtFixedRate(main::scheduledUpdate, 0, updateInterval, TimeUnit.MINUTES)
 }
 
-private fun environmentHelper(key: EnvironmentKey) : String?{
-    if(!System.getenv().contains(key.environmentPath)){
-        return null
+private fun informationProvider(key: InformationKey) : String?{
+    if((System.getenv()[key.path] ?: key.defaultValue()) != key.defaultValue()){
+        return System.getenv()[key.path]
     }
 
-    val value = System.getenv()[key.environmentPath]
-    if(value.equals(key.defaultValue())){
-        return null
+    if(System.getProperty(key.path, key.defaultValue()) != key.defaultValue()){
+        return System.getProperty(key.path)
     }
 
-    return value
+    return null
 }
 
-private enum class EnvironmentKey(val environmentPath: String) {
+private enum class InformationKey(val path: String) {
     WEBHOOK("DC_WEBHOOK"), EMAIL("CF_EMAIL"), TOKEN("CF_TOKEN"),
     ZONE("CF_ZONE"), SUBDOMAINS("CF_SUBDOMAINS"), TAG("DC_TAG");
 
@@ -121,16 +129,25 @@ class Main {
                 val type: String = element.get("type").asString
                 if (ipv4Checks.keys.contains(name)) {
                     if(type != "A"){
-                        //TODO Needs to be tested, could throw an error because of the newline character
-                        logger.warning("Named Subdomain '$name' does not match the type that is required to update the entry.\nRequired Type: A given '$type'")
+                        logger.warning("Named Subdomain '$name' does not match the type that is required to update the entry. Required Type: A - Given: '$type' - Entry removed from update List.")
                         ipv4Checks.remove(name)
                         continue;
                     }
                     ipv4Checks[name] = Ipv4Check(content, id)
                 }
             }
+            val notFound = ArrayList<String>()
+            ipv4Checks.entries.removeIf{ (k, v): Map.Entry<String, Ipv4Check> ->
+                val isNotFound = (v.id == null)
+                if(isNotFound) {
+                    notFound.add(k)
+                }
+                isNotFound
+            }
 
-            ipv4Checks.entries.stream().filter{(_, v): Map.Entry<String, Ipv4Check> -> v.id == null }.map { ipv4Checks.remove(it.key) }
+            if(notFound.isNotEmpty()){
+                logger.multiLog("Following Subdomains could not be found at Cloudflare", notFound, LoggerWrapper.LogLevel.INFO)
+            }
         }
 
         val entries: ArrayList<String> = ArrayList()
@@ -164,7 +181,7 @@ class Main {
         }
 
         if(entries.isNotEmpty() && !init) {
-            logger.info("Update about following Subdomains", entries)
+            logger.multiLog("Update about following Subdomains", entries, LoggerWrapper.LogLevel.INFO)
         }
 
         if(init) init = false
