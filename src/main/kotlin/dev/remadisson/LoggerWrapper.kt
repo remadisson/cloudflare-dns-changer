@@ -8,13 +8,22 @@ import java.util.logging.Logger
 
 
 val sdf = SimpleDateFormat("dd.MM.yyyy, HH:mm:ss")
-class LoggerWrapper(webhookUrl: String?, private val tag: String?) {
+class LoggerWrapper(webhookUrl: String?, tag: String?) {
 
     private val logger: Logger = Logger.getLogger("dev.remadisson.LoggerWrapper")
     private var discordWebhook: DiscordWebhook? = null
+    private var tag: String? = null
     init {
         if(!webhookUrl.isNullOrBlank()) {
             this.discordWebhook = DiscordWebhook(webhookUrl)
+        } else {
+            logger.info("Discord-Webhook not recognized. - Continuing without")
+        }
+
+        if(!tag.isNullOrBlank()) {
+            this.tag = tag
+        } else {
+            logger.info("Discord-Tag not found - Continuing without")
         }
     }
 
@@ -23,14 +32,18 @@ class LoggerWrapper(webhookUrl: String?, private val tag: String?) {
         toDiscord(LogLevel.INFO, message)
     }
 
-    fun info(context: String, list: List<String>) {
+    fun multiLog(context: String, list: List<String>, level: LogLevel) {
         var message = "$context \n"
         for ((i, element) in list.withIndex()) {
-            message = message.plus(" $i. $element")
-            if (i > 0) message = message.plus("\n")
+            message = message.plus(" $i. $element").plus("\n")
         }
-        logger.info(message)
-        toDiscord(LogLevel.INFO, context, *list.toTypedArray())
+        when(level){
+            LogLevel.INFO -> logger.info(message)
+            LogLevel.ERROR -> logger.fine("[ERROR] ".plus(message))
+            LogLevel.WARNING -> logger.warning(message)
+        }
+
+        toDiscord(level, context, *list.toTypedArray())
     }
 
     fun warning(message: String) {
@@ -102,7 +115,7 @@ class LoggerWrapper(webhookUrl: String?, private val tag: String?) {
         }
     }
 
-    private enum class LogLevel(val color: Color?) {
+    enum class LogLevel(val color: Color?) {
         INFO(Color.GREEN), ERROR(Color.RED), WARNING(Color.YELLOW);
     }
 }
