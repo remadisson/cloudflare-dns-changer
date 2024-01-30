@@ -1,10 +1,10 @@
 # cloudflare-dns-changer
 
-[cloudflare](https://www.cloudflare.com/)-dns-changer (cdc) is a tool, written in Kotlin, that can change the target of your DNS entries to your IP-Address.
-Comes in quiet handy when you're in Germany and don't have a static IP-Address.
-It uses the Cloudflare-API to connect, get and update Information.
+[cloudflare](https://www.cloudflare.com/)-dns-changer (cdc) is a tool, written in Kotlin, that can change the target of your DNS entries to your IP address.
+This is very handy when you're in Germany and don't have a static IP address.
+It uses the Cloudflare API to connect, get and update information.
 
-It can also provide Notifications via [Discord-Webhook](https://discord.com/developers/docs/resources/webhook#execute-webhook), it'll just need the URL to the channel.
+It can also provide Notifications via [Discord webhooks](https://discord.com/developers/docs/resources/webhook#execute-webhook), for this it only needs the URL of the channel.
 Your IP-Address will be determined by [https://checkip.amazonaws.com](https://checkip.amazonaws.com)
 
 ## Installation
