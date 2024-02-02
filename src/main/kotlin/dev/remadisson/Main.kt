@@ -119,7 +119,7 @@ class Main {
             for (iterator in jsonArray) {
                 val element: JsonObject = iterator.asJsonObject ?: continue
 
-                if (!element.has("id") || !element.has("name") || !element.has("id") || !element.has("type")) {
+                if (!element.has("id") || !element.has("name") || !element.has("content") || !element.has("type")) {
                     continue
                 }
 
