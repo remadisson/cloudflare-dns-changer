@@ -80,7 +80,7 @@ class LoggerWrapper(webhookUrl: String?, tag: String?) {
         var ipNull = false
 
         for(message in messages){
-            val check: Ipv4Check = ipv4Checks[message] ?: continue
+            val check: Ipv4Check = Main.getIpv4Checks()[message] ?: continue
             if(check.updated) {
                 embed.addField(message, "IP has been changed to: ${check.ipAddress}", true)
                 continue
@@ -111,7 +111,7 @@ class LoggerWrapper(webhookUrl: String?, tag: String?) {
             webhook.execute()
         }catch(ex: IOException){
             println(ex)
-            this.error(ex.printStackTrace().toString())
+            this.error(ex.toString())
         }
     }
 

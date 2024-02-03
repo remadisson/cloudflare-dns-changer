@@ -15,10 +15,8 @@ import java.util.*
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
+import kotlin.collections.HashMap
 import kotlin.system.exitProcess
-
-val ipv4Checks: HashMap<String, Ipv4Check> = HashMap()
-private const val updateInterval: Long = 30 // Minutes
 
 fun main() {
     val webhook = informationProvider(InformationKey.WEBHOOK)
@@ -53,11 +51,9 @@ fun main() {
         exitProcess(-1)
     }
 
-    val main = Main()
-    main.logger = logger
-    main.zoneID = zoneID!!
-    main.email = cfEmail!!
-    main.token = cfAuthToken!!
+    val main = Main.setMain(Main(logger, zoneID!!, cfEmail!!, cfAuthToken!!))
+    val ipv4Checks = Main.getIpv4Checks()
+    val updateInterval = Main.getUpdateInterval()
 
     for (subDomain in subDomains) {
         ipv4Checks[subDomain] = Ipv4Check.empty()
@@ -89,15 +85,37 @@ private enum class InformationKey(val path: String) {
     }
 }
 
-class Main {
+class Main(val logger: LoggerWrapper, private val zoneID: String, private val email: String, private val token: String) {
 
     private var currentIpAddress: String? = null
     private var lastUpdate: Instant? = null
     private var init: Boolean = true
-    lateinit var token: String
-    lateinit var email: String
-    lateinit var zoneID: String
-    lateinit var logger: LoggerWrapper
+
+    companion object {
+        private lateinit var main: Main
+        private val ipv4Checks: HashMap<String, Ipv4Check> = HashMap()
+        private const val UPDATE_INTERVAL: Long = 30
+        fun getMain() : Main {
+            return main
+        }
+
+        fun setMain(main: Main): Main{
+            this.main = main
+            return main
+        }
+
+        fun getIpv4Checks(): HashMap<String, Ipv4Check> {
+            return ipv4Checks
+        }
+
+        fun getUpdateInterval(): Long {
+            return UPDATE_INTERVAL
+        }
+
+        fun getLogger(): LoggerWrapper {
+            return main.logger
+        }
+    }
 
     fun scheduledUpdate() {
         val queriedIpAddress: String = getCurrentIpAddress()
