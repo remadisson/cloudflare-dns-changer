@@ -95,9 +95,6 @@ class Main(val logger: LoggerWrapper, private val zoneID: String, private val em
         private lateinit var main: Main
         private val ipv4Checks: HashMap<String, Ipv4Check> = HashMap()
         private const val UPDATE_INTERVAL: Long = 30
-        fun getMain() : Main {
-            return main
-        }
 
         fun setMain(main: Main): Main{
             this.main = main
