@@ -1,5 +1,7 @@
 # cloudflare-dns-changer
 
+![time](https://time.remady.me/api/badge/remadisson/interval:any/project:CloudflareDnsChanger)
+
 [cloudflare](https://www.cloudflare.com/)-dns-changer (cdc) is a tool, written in Kotlin, that can change the target of your DNS entries to your IP address.
 This is very handy when you're in Germany and don't have a static IP address.
 It uses the Cloudflare API to connect, get and update information.
@@ -25,7 +27,7 @@ java  \
     -DCF_EMAIL="default" \
     -DCF_TOKEN="default" \
     -DCF_ZONE="default" \
-    -DCF_SUBDOMAINS="default" \ #
+    -DCF_SUBDOMAINS="default" \ 
     -jar "cloudflare-dns-changer-{REPLACE-VERSION}.jar"
 ```
 
@@ -67,6 +69,7 @@ docker build -t cloudflare-dns-changer:latest .
 docker run -d --name cdc \                                                                                                                                                                                                                                                                                                                                   ✔  3h 29m 48s  
     --restart=always \
     -e DC_WEBHOOK="default" \
+    -e DC_TAG="default" \
     -e CF_EMAIL="default" \
     -e CF_TOKEN="default" \
     -e CF_ZONE="default" \
