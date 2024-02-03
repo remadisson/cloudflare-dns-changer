@@ -60,7 +60,7 @@ fun main() {
     main.token = cfAuthToken!!
 
     for (subDomain in subDomains) {
-        ipv4Checks[subDomain] = Ipv4Check(null, null)
+        ipv4Checks[subDomain] = Ipv4Check.empty()
     }
 
     val scheduler: ScheduledExecutorService = Executors.newScheduledThreadPool(1)
@@ -119,7 +119,8 @@ class Main {
             for (iterator in jsonArray) {
                 val element: JsonObject = iterator.asJsonObject ?: continue
 
-                if (!element.has("id") || !element.has("name") || !element.has("content") || !element.has("type")) {
+                if (!element.has("id") || !element.has("name") || !element.has("content") || !element.has("type") || !element.has("modified_on")) {
+                    println("Skipped entry because of missing attribute")
                     continue
                 }
 
@@ -127,15 +128,20 @@ class Main {
                 val id: String = element.get("id").asString
                 val content: String = element.get("content").asString
                 val type: String = element.get("type").asString
+                val lastModified: String = element.get("modified_on").asString
+
                 if (ipv4Checks.keys.contains(name)) {
                     if(type != "A"){
                         logger.warning("Named Subdomain '$name' does not match the type that is required to update the entry. Required Type: A - Given: '$type' - Entry removed from update List.")
                         ipv4Checks.remove(name)
                         continue
                     }
-                    ipv4Checks[name] = Ipv4Check(content, id)
+
+                    ipv4Checks[name] = Ipv4Check(content, id, lastModified)
                 }
+                Thread.sleep(50)
             }
+
             val notFound = ArrayList<String>()
             ipv4Checks.entries.removeIf{ (k, v): Map.Entry<String, Ipv4Check> ->
                 val isNotFound = (v.id == null)
@@ -166,17 +172,16 @@ class Main {
 
             val url = "https://api.cloudflare.com/client/v4/zones/$zoneID/dns_records/${entry.value.id}"
             val json = cloudflarePutRequest(url, body.toString()) ?: continue
-
             if(json.has("error")){
-                logger.error("${entry.key} has been found with an error ${json.toString()}")
+                logger.error("${entry.key} has been found with an error $json")
             } else {
-                ipv4Checks[entry.key] = Ipv4Check(currentIpAddress, entry.value.id)
+                val lastModified: String = json.get("modified_on").asString ?: Instant.now().toString()
+                ipv4Checks[entry.key] = Ipv4Check(currentIpAddress, entry.value.id, lastModified)
                 if(ipv4Checks.contains(entry.key)) {
                     ipv4Checks[entry.key]?.updated = true
                 }
                 entries.add(entry.key)
             }
-
             Thread.sleep(200)
         }
 
