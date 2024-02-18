@@ -2,9 +2,10 @@ package dev.remadisson
 
 import java.time.Instant
 import java.time.ZonedDateTime
+import java.util.*
 
 class Ipv4Check(val ipAddress: String?, val id: String?, dateAndTime: String?) {
-    var instant: Instant = toInstant(dateAndTime)
+    private var instant: Instant = toInstant(dateAndTime)
     var updated: Boolean = false
 
     private fun toInstant(dateAndTime: String?): Instant {
@@ -16,6 +17,10 @@ class Ipv4Check(val ipAddress: String?, val id: String?, dateAndTime: String?) {
             Main.getLogger().error(ex.toString())
             return Instant.now()
         }
+    }
+
+    fun getTimeStamp(): String {
+        return sdf.format(Date(instant.toEpochMilli()))
     }
 
     companion object {
