@@ -180,6 +180,25 @@ class DiscordWebhook
             return fields
         }
 
+        fun getFieldLength(field: Field): Int{
+            var length = 0
+            length+= field.name?.length ?: 0
+            length+= field.value?.length ?: 0
+            return length
+        }
+
+        fun getFieldsLength(): Int {
+            var length = 0;
+            for(field in getFields()){
+                length += getFieldLength(field)
+            }
+            return length
+        }
+
+        fun getLength(): Int {
+            return getFieldsLength() + (title?.length ?: 0) + (description?.length ?: 0)
+        }
+
         fun setTitle(title: String?): EmbedObject {
             this.title = title
             return this
@@ -220,6 +239,11 @@ class DiscordWebhook
             return this
         }
 
+        fun addField(field: Field){
+            if(getFields().size < 25 && getFieldLength(field) < (1024 + 256)) {
+                fields.add(field)
+            }
+        }
         fun addField(name: String?, value: String?, inline: Boolean): EmbedObject {
             fields.add(Field(name, value, inline))
             return this
