@@ -49,11 +49,11 @@ fun main() {
     val timestamp1 = System.currentTimeMillis();
     val scheduler: ScheduledExecutorService = Executors.newScheduledThreadPool(1)
     scheduler.scheduleAtFixedRate(main::scheduledUpdate, 0, updateInterval, TimeUnit.MINUTES)
-    while(main.init){
+    while (main.init) {
         Thread.sleep(50)
     }
     val timestamp2 = System.currentTimeMillis();
-    val timeDifference = (timestamp2 - timestamp1)/1000.0
+    val timeDifference = (timestamp2 - timestamp1) / 1000.0
     logger.multiMapLog(
         "Started: Fetch took about $timeDifference Seconds! Updating ${ipv4Checks.size} DNS-Record" + (if (ipv4Checks.size > 1) "s" else "") + " in an Interval of $updateInterval Minutes and the following Subdomains have been detected",
         "lastly updated at:",
@@ -100,7 +100,8 @@ class Main(
 
     private var currentIpAddress: String? = null
     private var lastUpdate: Instant? = null
-    @Volatile var init: Boolean = true
+    @Volatile
+    var init: Boolean = true
         private set
 
     companion object {
@@ -138,7 +139,7 @@ class Main(
             return
         }
 
-        if (init) {
+        if (this.init) {
             val idEndpoint = "https://api.cloudflare.com/client/v4/zones/$zoneID/dns_records"
             val response: JsonObject = cloudflareGetRequest(idEndpoint) ?: return
 
@@ -191,20 +192,20 @@ class Main(
         }
 
         val entries: ArrayList<String> = ArrayList()
-        for (entry in ipv4Checks.entries) {
-            if (Objects.equals(entry.value.ipAddress, currentIpAddress)) {
-                entries.add(entry.key)
+        for ((key, value) in ipv4Checks.entries) {
+            if (Objects.equals(value.ipAddress, currentIpAddress)) {
+                entries.add(key)
                 continue
             }
 
             val body = JsonObject()
             body.addProperty("type", "A")
-            body.addProperty("name", entry.key)
+            body.addProperty("name", key)
             body.addProperty("content", currentIpAddress)
             body.addProperty("ttl", 1)
             body.addProperty("proxied", false).toString()
 
-            val url = "https://api.cloudflare.com/client/v4/zones/$zoneID/dns_records/${entry.value.id}"
+            val url = "https://api.cloudflare.com/client/v4/zones/$zoneID/dns_records/${value.id}"
             val json = cloudflarePutRequest(url, body.toString()) ?: continue
             if (json.has("error")) {
                 logger.error("${entry.key} has been found with an error $json")
@@ -216,14 +217,25 @@ class Main(
                 }
                 entries.add(entry.key)
             }
+            if (json.has("errors") && json.get("errors").isJsonArray && json.get("errors").asJsonArray.size() > 0) {
+                logger.error("$key has been found with an error $json")
+                continue
+            }
+
+            val lastModified: String = json.get("modified_on").asString ?: Instant.now().toString()
+            ipv4Checks[key] = Ipv4Check(currentIpAddress, value.id, lastModified)
+            if (ipv4Checks.contains(key)) {
+                ipv4Checks[key]?.updated = true
+            }
+            entries.add(key)
             Thread.sleep(200)
         }
 
-        if (entries.isNotEmpty() && !init) {
+        if (entries.isNotEmpty() && !this.init) {
             logger.multiLog("Update about following Subdomains", entries, LoggerWrapper.LogLevel.INFO)
         }
 
-        if (init) init = false
+        if (this.init) { this.init = false }
     }
 
     private fun getCurrentIpAddress(): String {
